@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<modDesc descVersion="107">
+
+    <author>Oscar Mods</author>
+    <version>1.0.0.0</version>
+
+    <title>
+        <en>True Reg Plate Manual</en>
+		<de>Originales Kennzeichen Manuell</de>
+		<fr>Véritable Plaque d'Immatriculation Manuelle</fr>
+    </title>
+
+    <description>
+        <en>
+            Adds a realistic manual plate transfer mechanic to Farming Simulator 25.
+
+            Every tractor and vehicle keeps its own registration. By default all
+            vehicles can share the same plate number, which is not realistic.
+            This mod fixes that by requiring the player to physically transfer
+            the plate from the tractor to the trailer by hand.
+
+            HOW IT WORKS:
+            1. Attach a trailer to your tractor.
+            2. Exit the cab and walk to the rear of the tractor.
+            3. When the prompt appears, press the interact key to take the plate.
+               The registration will appear in your hand.
+            4. Walk to the rear of the trailer.
+            5. Press the interact key to attach the plate to the trailer.
+               The trailer now permanently displays the tractor's registration.
+
+            The plate stays on the trailer when you detach it. If you later
+            attach that trailer to a different tractor, the old plate remains
+            until you physically walk up and remove it, then fit the new one.
+
+            To remove a plate walk to the rear of the trailer without carrying
+            a plate and press the interact key when prompted.
+
+            Multiplayer supported. Saves and loads correctly.
+        </en>
+		<de>
+			Fügt Farming Simulator 25 einen realistischen manuellen
+			Kennzeichen-Übertragungsmechanismus hinzu.
+
+			Jeder Traktor und jedes Fahrzeug behält sein eigenes Kennzeichen.
+			Standardmäßig können alle Fahrzeuge dieselbe Kennzeichennummer
+			teilen, was nicht der Realität entspricht. Dieser Mod behebt das,
+			indem der Spieler das Kennzeichen vom Traktor auf den Anhänger
+			persönlich übertragen muss.
+
+			SO FUNKTIONIERT ES:
+			1. Hängen Sie einen Anhänger an Ihren Traktor.
+			2. Verlassen Sie die Kabine und gehen Sie zum Heck des Traktors.
+			3. Wenn die Eingabeaufforderung erscheint, drücken Sie die
+			   Interaktionstaste, um das Kennzeichen zu nehmen. Das Kennzeichen
+			   erscheint in Ihrer Hand.
+			4. Gehen Sie zum Heck des Anhängers.
+			5. Drücken Sie die Interaktionstaste, um das Kennzeichen am Anhänger
+			   zu befestigen. Der Anhänger zeigt nun dauerhaft das Kennzeichen
+			   des Traktors an.
+
+			Das Kennzeichen bleibt am Anhänger, wenn Sie ihn abkoppeln. Wenn Sie
+			den Anhänger später an einen anderen Traktor ankoppeln, bleibt das
+			alte Kennzeichen, bis Sie es physisch abnehmen und das neue anbringen.
+
+			Um ein Kennzeichen zu entfernen, gehen Sie ohne ein Kennzeichen in
+			der Hand zum Heck des Anhängers und drücken Sie die Interaktionstaste,
+			wenn Sie dazu aufgefordert werden.
+
+			Multiplayer wird unterstützt. Speichern und Laden funktionieren korrekt.
+		</de>
+		<fr>
+			Ajoute un mécanisme réaliste de transfert manuel de plaque
+			d'immatriculation à Farming Simulator 25.
+
+			Chaque tracteur et véhicule conserve sa propre immatriculation. Par
+			défaut, tous les véhicules peuvent partager le même numéro de plaque,
+			ce qui n'est pas réaliste. Ce mod y remédie en demandant au joueur de
+			transférer physiquement la plaque du tracteur vers la remorque à la main.
+
+			COMMENT ÇA MARCHE :
+			1. Attachez une remorque à votre tracteur.
+			2. Sortez de la cabine et marchez vers l'arrière du tracteur.
+			3. Lorsque l'invite apparaît, appuyez sur la touche d'interaction pour
+			   prendre la plaque. L'immatriculation apparaîtra dans votre main.
+			4. Marchez vers l'arrière de la remorque.
+			5. Appuyez sur la touche d'interaction pour fixer la plaque sur la
+			   remorque. La remorque affiche désormais en permanence
+			   l'immatriculation du tracteur.
+
+			La plaque reste sur la remorque lorsque vous la détachez. Si vous
+			attachez ensuite cette remorque à un autre tracteur, l'ancienne plaque
+			reste en place jusqu'à ce que vous la retiriez physiquement et posiez
+			la nouvelle.
+
+			Pour retirer une plaque, approchez-vous de l'arrière de la remorque
+			sans plaque en main et appuyez sur la touche d'interaction lorsque
+			vous y êtes invité.
+
+			Multijoueur pris en charge. La sauvegarde et le chargement
+			fonctionnent correctement.
+		</fr>
+    </description>
+
+    <iconFilename>store_trueRegPlate.dds</iconFilename>
+
+    <multiplayer supported="true"/>
+
+    <!--
+        extraSourceFiles are loaded after the base game scripts but before any
+        map or vehicle XML is processed, so our function wrappers on
+        Attachable.postAttach / Attachable.postDetach are in place before any
+        vehicle is spawned or loaded from a savegame.
+    -->
+    <extraSourceFiles>
+        <sourceFile filename="TrailerPlateSyncManual.lua"/>
+		<sourceFile filename="PlateHandoverManual.lua"/>
+    </extraSourceFiles>
+
+</modDesc>
