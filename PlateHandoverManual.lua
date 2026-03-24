@@ -43,6 +43,7 @@ PlateHandover.carriedPlateVisual = nil   -- LicensePlate clone or nil
 PlateHandover.tractorActivatables = {}   -- tractor  → PlatePickupActivatable
 PlateHandover.trailerActivatables = {}   -- trailer  → PlateAttachActivatable
 PlateHandover.trailerToTractor    = {}   -- trailer  → tractor  (for detach cleanup)
+PlateHandover.trpActionEventId    = nil  -- g_inputBinding event id for TRP_INTERACT (local player only)
 
 -- ---------------------------------------------------------------------------
 -- Prompt strings (hardcoded English — add l10n file later if needed)
@@ -360,8 +361,8 @@ function PlateHandover.onTrailerAttached(trailer, tractor, loadFromSavegame)
     Logging.info("%s onTrailerAttached: trailer=%s tractor=%s loadFromSavegame=%s",
         LOG, vname(trailer), vname(tractor), tostring(loadFromSavegame))
 
-    if g_currentMission == nil or g_currentMission.activatableObjectsSystem == nil then
-        Logging.info("%s onTrailerAttached: ABORT — activatableObjectsSystem not ready", LOG)
+    if g_currentMission == nil then
+        Logging.info("%s onTrailerAttached: ABORT — no mission", LOG)
         return
     end
     if not trailer:getHasLicensePlates() then
@@ -375,23 +376,13 @@ function PlateHandover.onTrailerAttached(trailer, tractor, loadFromSavegame)
 
     PlateHandover.trailerToTractor[trailer] = tractor
 
-    -- Remove stale pickup activatable if tractor was previously used with another trailer
-    local oldPickup = PlateHandover.tractorActivatables[tractor]
-    if oldPickup ~= nil then
-        Logging.info("%s onTrailerAttached: removing stale pickup activatable for tractor=%s",
-            LOG, vname(tractor))
-        g_currentMission.activatableObjectsSystem:removeActivatable(oldPickup)
-    end
-
     local pickupActivatable = PlatePickupActivatable.new(tractor, trailer)
     PlateHandover.tractorActivatables[tractor] = pickupActivatable
-    g_currentMission.activatableObjectsSystem:addActivatable(pickupActivatable)
     Logging.info("%s onTrailerAttached: pickup activatable REGISTERED for tractor=%s", LOG, vname(tractor))
 
     if PlateHandover.trailerActivatables[trailer] == nil then
         local attachActivatable = PlateAttachActivatable.new(trailer)
         PlateHandover.trailerActivatables[trailer] = attachActivatable
-        g_currentMission.activatableObjectsSystem:addActivatable(attachActivatable)
         Logging.info("%s onTrailerAttached: attach activatable REGISTERED for trailer=%s", LOG, vname(trailer))
     else
         Logging.info("%s onTrailerAttached: attach activatable already exists for trailer=%s (reuse)", LOG, vname(trailer))
@@ -401,21 +392,10 @@ end
 function PlateHandover.onTrailerDetached(trailer)
     Logging.info("%s onTrailerDetached: trailer=%s", LOG, vname(trailer))
 
-    if g_currentMission == nil or g_currentMission.activatableObjectsSystem == nil then
-        Logging.info("%s onTrailerDetached: ABORT — activatableObjectsSystem not ready", LOG)
-        return
-    end
-
     local tractor = PlateHandover.trailerToTractor[trailer]
     if tractor ~= nil then
-        local pickupActivatable = PlateHandover.tractorActivatables[tractor]
-        if pickupActivatable ~= nil then
-            g_currentMission.activatableObjectsSystem:removeActivatable(pickupActivatable)
-            PlateHandover.tractorActivatables[tractor] = nil
-            Logging.info("%s onTrailerDetached: pickup activatable REMOVED for tractor=%s", LOG, vname(tractor))
-        else
-            Logging.info("%s onTrailerDetached: no pickup activatable found for tractor=%s", LOG, vname(tractor))
-        end
+        PlateHandover.tractorActivatables[tractor] = nil
+        Logging.info("%s onTrailerDetached: pickup activatable REMOVED for tractor=%s", LOG, vname(tractor))
         PlateHandover.trailerToTractor[trailer] = nil
     else
         Logging.info("%s onTrailerDetached: no tractor association found for trailer=%s", LOG, vname(trailer))
@@ -430,24 +410,8 @@ end
 function PlateHandover.onVehicleWithPlatesDeleted(vehicle)
     Logging.info("%s onVehicleWithPlatesDeleted: vehicle=%s", LOG, vname(vehicle))
 
-    if g_currentMission == nil or g_currentMission.activatableObjectsSystem == nil then
-        return
-    end
-
-    local attachActivatable = PlateHandover.trailerActivatables[vehicle]
-    if attachActivatable ~= nil then
-        g_currentMission.activatableObjectsSystem:removeActivatable(attachActivatable)
-        PlateHandover.trailerActivatables[vehicle] = nil
-        Logging.info("%s onVehicleWithPlatesDeleted: attach activatable removed", LOG)
-    end
-
-    local pickupActivatable = PlateHandover.tractorActivatables[vehicle]
-    if pickupActivatable ~= nil then
-        g_currentMission.activatableObjectsSystem:removeActivatable(pickupActivatable)
-        PlateHandover.tractorActivatables[vehicle] = nil
-        Logging.info("%s onVehicleWithPlatesDeleted: pickup activatable removed", LOG)
-    end
-
+    PlateHandover.trailerActivatables[vehicle] = nil
+    PlateHandover.tractorActivatables[vehicle] = nil
     PlateHandover.trailerToTractor[vehicle] = nil
 
     for trailer, tractor in pairs(PlateHandover.trailerToTractor) do
@@ -463,6 +427,103 @@ function PlateHandover.onVehicleWithPlatesDeleted(vehicle)
         PlateHandover.clearCarriedPlate()
     end
 end
+
+-- ===========================================================================
+-- TRP_INTERACT input action — dedicated key, independent of ACTIVATE_OBJECT.
+-- Registered in the PLAYER context so it shows in Controls and is rebindable.
+-- Bypasses ActivatableObjectsSystem entirely — never competes with straps,
+-- gates, or any other ACTIVATE_OBJECT activatable.
+--
+-- Utils.prependedFunction confirmed Utils.lua l.502 — runs newFunc BEFORE
+-- oldFunc, so TRP_INTERACT is registered first and sits at the TOP of the
+-- HUD action list above all other player actions.
+--
+-- Source: PlayerInputComponent.lua
+--   registerActionEvents  l.72  — PLAYER context registration pattern
+--   unregisterActionEvents l.223 — removeActionEventsByTarget pattern
+--   update l.256 — setActionEventText/setActionEventActive per-tick pattern
+--   INPUT_CONTEXT_NAME l.3
+-- ===========================================================================
+
+-- Returns the first TRP activatable whose getIsActivatable() returns true.
+-- Pickup (tractor side) is checked before attach (trailer side) so that when
+-- the player is near the tractor rear the take-plate prompt wins.
+function PlateHandover.getNearestActivatable()
+    for _, activatable in pairs(PlateHandover.tractorActivatables) do
+        if activatable:getIsActivatable() then
+            return activatable
+        end
+    end
+    for _, activatable in pairs(PlateHandover.trailerActivatables) do
+        if activatable:getIsActivatable() then
+            return activatable
+        end
+    end
+    return nil
+end
+
+-- Callback fired by TRP_INTERACT key press.
+function PlateHandover.onTRPInteract()
+    local activatable = PlateHandover.getNearestActivatable()
+    if activatable ~= nil then
+        Logging.info("%s onTRPInteract: firing run() | prompt='%s'", LOG, tostring(activatable.activateText))
+        activatable:run()
+    end
+end
+
+-- Appended to PlayerInputComponent:registerActionEvents using prependedFunction
+-- so TRP_INTERACT is registered BEFORE base game actions, placing it at the
+-- top of the HUD list. Source: PlayerInputComponent.lua l.76-117
+-- Utils.prependedFunction: Utils.lua l.502
+PlayerInputComponent.registerActionEvents = Utils.prependedFunction(
+    PlayerInputComponent.registerActionEvents,
+    function(self)
+        if not self.player.isOwner then return end
+        g_inputBinding:beginActionEventsModification(PlayerInputComponent.INPUT_CONTEXT_NAME)
+        local _, eventId = g_inputBinding:registerActionEvent(
+            InputAction.TRP_INTERACT,
+            PlateHandover,
+            PlateHandover.onTRPInteract,
+            false, true, false, false, nil, false
+        )
+        g_inputBinding:setActionEventTextVisibility(eventId, true)
+        g_inputBinding:setActionEventActive(eventId, false)
+        PlateHandover.trpActionEventId = eventId
+        g_inputBinding:endActionEventsModification()
+        Logging.info("%s registerActionEvents: TRP_INTERACT registered | eventId=%s", LOG, tostring(eventId))
+    end
+)
+
+-- Source: PlayerInputComponent.lua l.223 — removeActionEventsByTarget pattern
+PlayerInputComponent.unregisterActionEvents = Utils.appendedFunction(
+    PlayerInputComponent.unregisterActionEvents,
+    function(self)
+        if not self.player.isOwner then return end
+        g_inputBinding:beginActionEventsModification(PlayerInputComponent.INPUT_CONTEXT_NAME)
+        g_inputBinding:removeActionEventsByTarget(PlateHandover)
+        g_inputBinding:endActionEventsModification()
+        PlateHandover.trpActionEventId = nil
+        Logging.info("%s unregisterActionEvents: TRP_INTERACT removed", LOG)
+    end
+)
+
+-- Shows or hides the TRP_INTERACT prompt each tick based on proximity.
+-- Source: PlayerInputComponent.lua l.299-300 — setActionEventText/Active pattern
+PlayerInputComponent.update = Utils.appendedFunction(
+    PlayerInputComponent.update,
+    function(self, dt)
+        if not self.player.isOwner then return end
+        if PlateHandover.trpActionEventId == nil then return end
+        if g_inputBinding:getContextName() ~= PlayerInputComponent.INPUT_CONTEXT_NAME then return end
+        local activatable = PlateHandover.getNearestActivatable()
+        if activatable ~= nil then
+            g_inputBinding:setActionEventText(PlateHandover.trpActionEventId, activatable.activateText)
+            g_inputBinding:setActionEventActive(PlateHandover.trpActionEventId, true)
+        else
+            g_inputBinding:setActionEventActive(PlateHandover.trpActionEventId, false)
+        end
+    end
+)
 
 -- ===========================================================================
 -- Carry state helpers
