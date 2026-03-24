@@ -106,6 +106,21 @@
     <multiplayer supported="true"/>
 
     <!--
+        TRP_INTERACT is a dedicated input action separate from ACTIVATE_OBJECT.
+        This means the plate key never competes with straps, gates, or any other
+        activatable. The player can rebind it in Options > Controls.
+        Default: R (same physical key as ACTIVATE_OBJECT, but a distinct action).
+    -->
+    <actions>
+        <action name="TRP_INTERACT" axisType="HALF_AXIS" />
+    </actions>
+    <actionBindings>
+        <actionBinding action="TRP_INTERACT" axisType="HALF_AXIS">
+            <binding device="KB_MOUSE_DEFAULT" axisComponent="+" index="KEY_T" />
+        </actionBinding>
+    </actionBindings>
+
+    <!--
         extraSourceFiles are loaded after the base game scripts but before any
         map or vehicle XML is processed, so our function wrappers on
         Attachable.postAttach / Attachable.postDetach are in place before any
@@ -115,5 +130,12 @@
         <sourceFile filename="TrailerPlateSyncManual.lua"/>
 		<sourceFile filename="PlateHandoverManual.lua"/>
     </extraSourceFiles>
-
+	
+	<l10n>
+		<text name="input_TRP_INTERACT">
+			<en>Transfer Reg Plate</en>
+			<de>Kennzeichen übertragen</de>
+			<fr>Transférer la plaque d'immatriculation</fr>
+		</text>
+	</l10n>
 </modDesc>
